@@ -1,20 +1,8 @@
-STAGE ?= development
-
-deploy:
-	cd terraform && \
-	  terraform init -backend-config=../environments/$(STAGE).backend.hcl && \
-	  terraform apply -auto-approve -input=false -var-file=../environments/$(STAGE).tfvars
-
-plan:
-	cd terraform && \
-	  terraform init -backend-config=../environments/$(STAGE).backend.hcl && \
-	  terraform plan -var-file=../environments/$(STAGE).tfvars
-
 deploy-development:
-	$(MAKE) deploy STAGE=development
+	.github/bin/deploy development
 
 deploy-staging:
-	$(MAKE) deploy STAGE=staging
+	.github/bin/deploy staging
 
 deploy-production:
-	$(MAKE) deploy STAGE=production
+	.github/bin/deploy production

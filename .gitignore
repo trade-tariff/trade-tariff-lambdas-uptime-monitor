@@ -1,12 +1,6 @@
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.backup
-.terraform.lock.hcl
-crash.log
+# Serverless Framework
+.serverless/
 
 # Bundler
-vendor/bundle
-
-# Lambda build artefacts
-lambda/*.zip
+lambda/checker/vendor/
+lambda/pagerduty/vendor/

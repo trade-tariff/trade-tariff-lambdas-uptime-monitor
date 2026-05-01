@@ -13,7 +13,6 @@ permissions:
 env:
   AWS_REGION: eu-west-2
   STAGE: development
-  TERRAFORM_VERSION: 1.13.4
 
 jobs:
   deploy:
@@ -34,12 +33,8 @@ jobs:
           role-to-assume: arn:aws:iam::844815912454:role/GithubActions-Serverless-Lambda-Role
           aws-region: ${{ env.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - run: yarn global add serverless@3.0
 
-      - run: terraform init -backend-config=../environments/${{ env.STAGE }}.backend.hcl
-        working-directory: terraform
-
-      - run: terraform apply -auto-approve -input=false -var-file=../environments/${{ env.STAGE }}.tfvars
-        working-directory: terraform
+      - run: make deploy-${{ env.STAGE }}
+        env:
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}

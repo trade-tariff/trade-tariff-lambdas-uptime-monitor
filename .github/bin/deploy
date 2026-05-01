@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+[[ "$TRACE" ]] && set -o xtrace
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o noclobber
+
+declare -A DEPLOYMENT_BUCKETS=(
+  ["development"]="trade-tariff-lambda-deployment-844815912454"
+  ["staging"]="trade-tariff-lambda-deployment-451934005581"
+  ["production"]="trade-tariff-lambda-deployment-382373577178"
+)
+
+# Map of endpoint name => URL per stage.
+# Add new entries here when adding URLs to monitor — then add the corresponding
+# CloudWatch alarm and dashboard widget in serverless.yml.
+declare -A MONITORED_URLS=(
+  ["development"]='[{"name":"find-commodity","url":"https://dev.trade-tariff.service.gov.uk/find_commodity"}]'
+  ["staging"]='[{"name":"find-commodity","url":"https://staging.trade-tariff.service.gov.uk/find_commodity"}]'
+  ["production"]='[{"name":"find-commodity","url":"https://www.trade-tariff.service.gov.uk/find_commodity"}]'
+)
+
+deploy() {
+  local stage="$1"
+
+  STAGE="$stage" \
+  AWS_REGION="eu-west-2" \
+  DEPLOYMENT_BUCKET="${DEPLOYMENT_BUCKETS[$stage]}" \
+  MONITORED_URLS="${MONITORED_URLS[$stage]}" \
+  PAGERDUTY_ROUTING_KEY="${PAGERDUTY_ROUTING_KEY:-}" \
+    serverless deploy
+}
+
+main() {
+  if [ $# -lt 1 ]; then
+    echo "Usage: $0 <stage>"
+    exit 1
+  fi
+
+  deploy "$1"
+}
+
+main "$@"

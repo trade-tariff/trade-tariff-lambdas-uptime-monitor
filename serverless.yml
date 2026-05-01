@@ -1,0 +1,183 @@
+service: trade-tariff-uptime-monitor
+frameworkVersion: "3"
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: ruby3.4
+  stage: ${env:STAGE}
+  region: ${env:AWS_REGION, 'eu-west-2'}
+  deploymentBucket:
+    name: ${env:DEPLOYMENT_BUCKET}
+
+custom:
+  logRetentionInDays:
+    development: 7
+    staging: 30
+    production: 90
+
+functions:
+  checker:
+    handler: lambda/checker/lambda_function.lambda_handler
+    timeout: 60
+    memorySize: 256
+    role: !GetAtt CheckerRole.Arn
+    environment:
+      MONITORED_URLS: ${env:MONITORED_URLS}
+    events:
+      - schedule: rate(1 minute)
+    package:
+      patterns:
+        - "!**"
+        - "lambda/checker/**"
+
+  pagerduty:
+    handler: lambda/pagerduty/lambda_function.lambda_handler
+    timeout: 30
+    memorySize: 128
+    role: !GetAtt PagerdutyRole.Arn
+    environment:
+      PAGERDUTY_ROUTING_KEY: ${env:PAGERDUTY_ROUTING_KEY, ''}
+    events:
+      - sns: !Ref UptimeAlertsTopic
+    package:
+      patterns:
+        - "!**"
+        - "lambda/pagerduty/**"
+
+resources:
+  Resources:
+
+    # ---- IAM Roles ----
+
+    CheckerRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: trade-tariff-uptime-checker-${self:provider.stage}
+        Path: /service-role/
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: logs
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/trade-tariff-uptime-monitor-${self:provider.stage}-checker:*"
+          - PolicyName: cloudwatch-metrics
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: cloudwatch:PutMetricData
+                  Resource: "*"
+                  Condition:
+                    StringEquals:
+                      cloudwatch:namespace: TradeTariff/Uptime
+
+    PagerdutyRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: trade-tariff-uptime-pagerduty-${self:provider.stage}
+        Path: /service-role/
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: logs
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/trade-tariff-uptime-monitor-${self:provider.stage}-pagerduty:*"
+
+    # ---- SNS ----
+
+    UptimeAlertsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: trade-tariff-uptime-alerts-${self:provider.stage}
+
+    # ---- CloudWatch Alarms ----
+    # Add one block per monitored URL. The Endpoint dimension value must match
+    # the name key used in MONITORED_URLS in .github/bin/deploy.
+
+    FindCommodityAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: uptime-find-commodity-${self:provider.stage}
+        AlarmDescription: Uptime check failed for find-commodity
+        ComparisonOperator: LessThanThreshold
+        EvaluationPeriods: 3
+        DatapointsToAlarm: 3
+        MetricName: Availability
+        Namespace: TradeTariff/Uptime
+        Period: 60
+        Statistic: Minimum
+        Threshold: 1
+        TreatMissingData: breaching
+        Dimensions:
+          - Name: Endpoint
+            Value: find-commodity
+        AlarmActions:
+          - !Ref UptimeAlertsTopic
+        OKActions:
+          - !Ref UptimeAlertsTopic
+
+    # ---- CloudWatch Dashboard ----
+
+    UptimeDashboard:
+      Type: AWS::CloudWatch::Dashboard
+      Properties:
+        DashboardName: trade-tariff-uptime-${self:provider.stage}
+        DashboardBody: !Sub |
+          {
+            "widgets": [
+              {
+                "type": "metric",
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "title": "find-commodity \u2014 Availability",
+                  "region": "${AWS::Region}",
+                  "metrics": [["TradeTariff/Uptime", "Availability", "Endpoint", "find-commodity"]],
+                  "period": 60,
+                  "stat": "Minimum",
+                  "view": "timeSeries",
+                  "yAxis": { "left": { "min": 0, "max": 1 } },
+                  "annotations": { "horizontal": [{ "value": 1, "color": "#2ca02c", "label": "Up" }] }
+                }
+              },
+              {
+                "type": "metric",
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "title": "find-commodity \u2014 Response Time (ms)",
+                  "region": "${AWS::Region}",
+                  "metrics": [["TradeTariff/Uptime", "ResponseTime", "Endpoint", "find-commodity"]],
+                  "period": 60,
+                  "stat": "Average",
+                  "view": "timeSeries",
+                  "yAxis": { "left": { "min": 0 } }
+                }
+              }
+            ]
+          }
