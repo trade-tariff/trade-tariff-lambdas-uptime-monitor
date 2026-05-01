@@ -33,7 +33,7 @@ jobs:
           role-to-assume: arn:aws:iam::451934005581:role/GithubActions-Serverless-Lambda-Role
           aws-region: ${{ env.AWS_REGION }}
 
-      - run: yarn global add serverless@3.0
+      - run: yarn global add serverless@3
 
       - run: make deploy-${{ env.STAGE }}
         env:
