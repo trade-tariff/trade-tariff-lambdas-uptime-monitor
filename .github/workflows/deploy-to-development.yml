@@ -31,7 +31,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::844815912454:role/GithubActions-Terraform-Role
+          role-to-assume: arn:aws:iam::844815912454:role/GithubActions-Serverless-Lambda-Role
           aws-region: ${{ env.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v4
