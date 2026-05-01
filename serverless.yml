@@ -40,8 +40,6 @@ functions:
     role: !GetAtt PagerdutyRole.Arn
     environment:
       PAGERDUTY_ROUTING_KEY: ${env:PAGERDUTY_ROUTING_KEY, ''}
-    events:
-      - sns: !Ref UptimeAlertsTopic
     package:
       patterns:
         - "!**"
@@ -114,6 +112,21 @@ resources:
       Type: AWS::SNS::Topic
       Properties:
         TopicName: trade-tariff-uptime-alerts-${self:provider.stage}
+
+    PagerdutyTopicSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: !Ref UptimeAlertsTopic
+        Protocol: lambda
+        Endpoint: !GetAtt PagerdutyLambdaFunction.Arn
+
+    PagerdutyLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt PagerdutyLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: sns.amazonaws.com
+        SourceArn: !Ref UptimeAlertsTopic
 
     # ---- CloudWatch Alarms ----
     # Add one block per monitored URL. The Endpoint dimension value must match
