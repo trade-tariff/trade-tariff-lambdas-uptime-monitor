@@ -1,0 +1,45 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: eu-west-2
+  STAGE: staging
+  TERRAFORM_VERSION: 1.13.4
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+
+      - run: bundle config set path 'vendor/bundle' && bundle install
+        working-directory: lambda/checker
+
+      - run: bundle config set path 'vendor/bundle' && bundle install
+        working-directory: lambda/pagerduty
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::451934005581:role/GithubActions-Terraform-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - run: terraform init -backend-config=../environments/${{ env.STAGE }}.backend.hcl
+        working-directory: terraform
+
+      - run: terraform apply -auto-approve -input=false -var-file=../environments/${{ env.STAGE }}.tfvars
+        working-directory: terraform
