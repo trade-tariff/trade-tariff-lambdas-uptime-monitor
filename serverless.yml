@@ -1,5 +1,6 @@
 service: trade-tariff-uptime-monitor
 frameworkVersion: "3"
+configValidationMode: warn
 
 package:
   individually: true
