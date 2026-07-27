@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: ruby/setup-ruby@v1.316.0
+      - uses: ruby/setup-ruby@v1.319.0
 
       - run: bundle config set path 'vendor/bundle' && bundle install
         working-directory: lambda/checker
