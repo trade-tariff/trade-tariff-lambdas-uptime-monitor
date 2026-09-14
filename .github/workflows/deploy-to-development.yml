@@ -22,6 +22,11 @@ jobs:
 
       - uses: ruby/setup-ruby@v1.321.0
 
+      # Gate the deploy on the specs. This repo is the alerting path, so a
+      # broken monitor must not reach an environment.
+      - run: bundle install
+      - run: bundle exec rspec
+
       - run: bundle config set path 'vendor/bundle' && bundle install
         working-directory: lambda/checker
 
