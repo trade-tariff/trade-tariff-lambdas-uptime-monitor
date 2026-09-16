@@ -22,6 +22,11 @@ jobs:
 
       - uses: ruby/setup-ruby@v1.321.0
 
+      # Gate the deploy on the specs. This repo is the alerting path, so a
+      # broken monitor must not reach an environment.
+      - run: bundle install
+      - run: bundle exec rspec
+
       - run: bundle config set path 'vendor/bundle' && bundle install
         working-directory: lambda/checker
 
@@ -38,3 +43,6 @@ jobs:
       - run: make deploy-${{ env.STAGE }}
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          # The same org secret the terraform repo feeds to the WAF's
+          # allow-e2e-tests rule. One value, so the two cannot drift apart.
+          WAF_BYPASS_TOKEN: ${{ secrets.TF_VAR_WAF_E2E_SECRET_TOKEN }}

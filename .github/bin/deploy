@@ -28,6 +28,7 @@ deploy() {
   AWS_REGION="eu-west-2" \
   DEPLOYMENT_BUCKET="${DEPLOYMENT_BUCKETS[$stage]}" \
   MONITORED_URLS="${MONITORED_URLS[$stage]}" \
+  WAF_BYPASS_TOKEN="${WAF_BYPASS_TOKEN:-}" \
   PAGERDUTY_ROUTING_KEY="${PAGERDUTY_ROUTING_KEY:-}" \
     serverless deploy
 }

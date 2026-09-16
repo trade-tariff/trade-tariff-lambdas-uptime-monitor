@@ -27,6 +27,10 @@ functions:
     role: !GetAtt CheckerRole.Arn
     environment:
       MONITORED_URLS: ${env:MONITORED_URLS}
+      # Shared secret for the WAF's allow-e2e-tests rule. Defaults to empty so
+      # a deploy still works without it; the probe then omits the header and
+      # Bot Control answers 403 on production.
+      WAF_BYPASS_TOKEN: ${env:WAF_BYPASS_TOKEN, ''}
     events:
       - schedule: rate(1 minute)
     package:
