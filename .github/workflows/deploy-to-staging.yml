@@ -43,3 +43,6 @@ jobs:
       - run: make deploy-${{ env.STAGE }}
         env:
           PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          # The same org secret the terraform repo feeds to the WAF's
+          # allow-e2e-tests rule. One value, so the two cannot drift apart.
+          WAF_BYPASS_TOKEN: ${{ secrets.TF_VAR_WAF_E2E_SECRET_TOKEN }}

@@ -10,9 +10,16 @@ CLOUDWATCH_NAMESPACE = 'TradeTariff/Uptime'
 # out.
 MAX_REDIRECTS = 5
 
-# Identifies the probe in the target's access logs, and gives WAF rules
-# something stable to match on.
+# Identifies the probe in the target's access logs.
 USER_AGENT = 'trade-tariff-uptime-monitor (+https://github.com/trade-tariff/trade-tariff-uptime-monitor)'
+
+# The monitored pages sit behind AWS Bot Control, which answers 403 to any
+# client that does not look like a browser. This is the header the WAF's
+# allow-e2e-tests rule already matches on, and it runs at a lower priority than
+# Bot Control, so a correct token short circuits the block. The value is a
+# shared secret, not the User-Agent, because a User-Agent is public and an
+# allow rule matching one would be a bypass for anybody.
+WAF_BYPASS_HEADER = 'x-waf-bypass'
 
 def lambda_handler(event:, context:)
   endpoints = JSON.parse(ENV.fetch('MONITORED_URLS'))
@@ -69,9 +76,10 @@ end
 
 def get_following_redirects(url)
   uri = URI.parse(url)
+  monitored_host = uri.host
 
   MAX_REDIRECTS.times do
-    response = get(uri)
+    response = get(uri, monitored_host)
     return response unless response.is_a?(Net::HTTPRedirection)
 
     location = response['location']
@@ -83,11 +91,18 @@ def get_following_redirects(url)
   raise "Exceeded #{MAX_REDIRECTS} redirects starting from #{url}"
 end
 
-def get(uri)
+def get(uri, monitored_host)
   http = Net::HTTP.new(uri.host, uri.port)
   http.use_ssl      = uri.scheme == 'https'
   http.open_timeout = 10
   http.read_timeout = 15
 
-  http.get(uri.request_uri, 'User-Agent' => USER_AGENT)
+  headers = { 'User-Agent' => USER_AGENT }
+
+  # Send the token only to the host we were told to monitor. A redirect can
+  # point anywhere, and this secret must not follow it off to a third party.
+  token = ENV.fetch('WAF_BYPASS_TOKEN', '')
+  headers[WAF_BYPASS_HEADER] = token if !token.empty? && uri.host == monitored_host
+
+  http.get(uri.request_uri, headers)
 end

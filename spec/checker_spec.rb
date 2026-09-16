@@ -99,6 +99,53 @@ RSpec.describe 'checker lambda' do
 
       expect(request).to have_been_requested
     end
+
+    context 'when WAF_BYPASS_TOKEN is set' do
+      before { ENV['WAF_BYPASS_TOKEN'] = 'a-shared-secret' }
+      after  { ENV.delete('WAF_BYPASS_TOKEN') }
+
+      it 'sends the bypass header so Bot Control does not answer 403' do
+        request = stub_request(:get, url)
+                  .with(headers: { checker::WAF_BYPASS_HEADER => 'a-shared-secret' })
+                  .to_return(status: 200)
+
+        checker.probe(url)
+
+        expect(request).to have_been_requested
+      end
+
+      it 'keeps sending the bypass header across a redirect on the monitored host' do
+        stub_request(:get, url).to_return(status: 302, headers: { 'Location' => '/commodities' })
+        final = stub_request(:get, 'https://www.example.com/commodities')
+                .with(headers: { checker::WAF_BYPASS_HEADER => 'a-shared-secret' })
+                .to_return(status: 200)
+
+        checker.probe(url)
+
+        expect(final).to have_been_requested
+      end
+
+      it 'withholds the bypass header from a redirect to another host' do
+        stub_request(:get, url).to_return(status: 302, headers: { 'Location' => 'https://elsewhere.example.org/' })
+        final = stub_request(:get, 'https://elsewhere.example.org/').to_return(status: 200)
+
+        checker.probe(url)
+
+        expect(final).to have_been_requested
+        expect(WebMock).not_to have_requested(:get, 'https://elsewhere.example.org/')
+          .with(headers: { checker::WAF_BYPASS_HEADER => 'a-shared-secret' })
+      end
+    end
+
+    it 'omits the bypass header when no token is configured' do
+      request = stub_request(:get, url).to_return(status: 200)
+
+      checker.probe(url)
+
+      expect(request).to have_been_requested
+      expect(WebMock).not_to have_requested(:get, url)
+        .with { |req| req.headers.key?('X-Waf-Bypass') }
+    end
   end
 
   describe '#lambda_handler' do
