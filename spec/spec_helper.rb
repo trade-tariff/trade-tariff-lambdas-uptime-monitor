@@ -2,6 +2,13 @@
 
 require 'webmock/rspec'
 
+# The specs name Aws::CloudWatch::Client in a before hook, which runs before the
+# lazy subject loads a Lambda entrypoint. Requiring the SDK here makes the
+# constant available whatever order the examples run in. Without this, an
+# example that loads an entrypoint first defines Aws as a side effect and hides
+# the problem, so the suite passes or fails by seed.
+require 'aws-sdk-cloudwatch'
+
 WebMock.disable_net_connect!
 
 RSpec.configure do |config|
