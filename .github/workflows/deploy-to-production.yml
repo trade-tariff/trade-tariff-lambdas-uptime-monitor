@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: ruby/setup-ruby@v1.321.0
+      - uses: ruby/setup-ruby@v1.324.0
 
       # Gate the deploy on the specs. This repo is the alerting path, so a
       # broken monitor must not reach an environment.
