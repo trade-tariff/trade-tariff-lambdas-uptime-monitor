@@ -10,6 +10,7 @@ provider:
   runtime: ruby3.4
   stage: ${env:STAGE}
   region: ${env:AWS_REGION, 'eu-west-2'}
+  logRetentionInDays: ${self:custom.logRetentionInDays.${self:provider.stage}}
   deploymentBucket:
     name: ${env:DEPLOYMENT_BUCKET}
 
